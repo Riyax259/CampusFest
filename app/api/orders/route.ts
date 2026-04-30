@@ -13,6 +13,7 @@ export async function POST(req: Request) {
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const userId = session.user.id as string;
 
   const { eventId } = await req.json();
 
@@ -28,7 +29,7 @@ export async function POST(req: Request) {
 
   // Check duplicate registration
   const existing = await prisma.registration.findUnique({
-    where: { userId_eventId: { userId: session.user.id, eventId } },
+    where: { userId_eventId: { userId: userId, eventId } },
   });
   if (existing?.status === "CONFIRMED") {
     return NextResponse.json({ error: "Already registered" }, { status: 409 });
@@ -38,14 +39,14 @@ export async function POST(req: Request) {
   const rpOrder = await razorpay.orders.create({
     amount: event.price,
     currency: "INR",
-    receipt: `evt_${eventId.slice(-6)}_usr_${session.user.id.slice(-6)}`,
+    receipt: `evt_${eventId.slice(-6)}_usr_${userId.slice(-6)}`,
   });
 
   // Save order to DB
   await prisma.order.create({
     data: {
       razorpayOrderId: rpOrder.id,
-      userId: session.user.id,
+      userId: userId,
       eventId,
       amount: event.price,
       status: "CREATED",
@@ -54,9 +55,9 @@ export async function POST(req: Request) {
 
   // Create pending registration
   await prisma.registration.upsert({
-    where: { userId_eventId: { userId: session.user.id, eventId } },
+    where: { userId_eventId: { userId: userId, eventId } },
     create: {
-      userId: session.user.id,
+      userId: userId,
       eventId,
       orderId: rpOrder.id,
       status: "PENDING",
