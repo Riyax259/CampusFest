@@ -1,0 +1,203 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+
+generator client {
+  provider = "prisma-client-js"
+}
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL_UNPOOLED")
+}
+
+enum Role {
+  STUDENT
+  ORGANIZER
+  ADMIN
+}
+
+enum EventStatus {
+  DRAFT
+  PUBLISHED
+  SOLD_OUT
+  CANCELLED
+  COMPLETED
+}
+
+enum EventCategory {
+  HACKATHON
+  TECH_TALK
+  WORKSHOP
+  CULTURAL
+  SPORTS
+  OTHER
+}
+
+enum RegistrationStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  ATTENDED
+}
+
+enum OrderStatus {
+  CREATED
+  PAID
+  FAILED
+  REFUNDED
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  role          Role      @default(STUDENT)
+  college       String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+  events        Event[]        @relation("OrganizerEvents")
+  registrations Registration[]
+  waitlist      Waitlist[]
+}
+
+model Event {
+  id              String        @id @default(cuid())
+  title           String
+  slug            String        @unique
+  description     String        @db.Text
+  coverImage      String?
+  category        EventCategory @default(OTHER)
+  status          EventStatus   @default(DRAFT)
+  venue           String
+  city            String
+  startDate       DateTime
+  endDate         DateTime
+  totalCapacity   Int
+  registeredCount Int           @default(0)
+  price           Int
+  isFree          Boolean       @default(false)
+  organizerId     String
+  organizer       User          @relation("OrganizerEvents", fields: [organizerId], references: [id])
+  tickets         Ticket[]
+  registrations   Registration[]
+  waitlist        Waitlist[]
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([status, startDate])
+  @@index([category])
+  @@index([organizerId])
+}
+
+model Ticket {
+  id            String         @id @default(cuid())
+  eventId       String
+  event         Event          @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  name          String
+  description   String?
+  price         Int
+  capacity      Int
+  sold          Int            @default(0)
+  validUntil    DateTime?
+  registrations Registration[]
+
+  @@index([eventId])
+}
+
+model Registration {
+  id           String             @id @default(cuid())
+  userId       String
+  user         User               @relation(fields: [userId], references: [id])
+  eventId      String
+  event        Event              @relation(fields: [eventId], references: [id])
+  ticketId     String?
+  ticket       Ticket?            @relation(fields: [ticketId], references: [id])
+  status       RegistrationStatus @default(PENDING)
+  qrCode       String             @unique @default(cuid())
+  checkedInAt  DateTime?
+  orderId      String?
+  paymentId    String?
+  amountPaid   Int                @default(0)
+  ticketPdfUrl String?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  @@unique([userId, eventId])
+  @@index([eventId, status])
+  @@index([userId])
+  @@index([qrCode])
+}
+
+model Order {
+  id                String      @id @default(cuid())
+  razorpayOrderId   String      @unique
+  razorpayPaymentId String?
+  razorpaySignature String?
+  userId            String
+  eventId           String
+  amount            Int
+  currency          String      @default("INR")
+  status            OrderStatus @default(CREATED)
+  webhookProcessed  Boolean     @default(false)
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  @@index([userId])
+  @@index([razorpayOrderId])
+}
+
+model Waitlist {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  eventId   String
+  event     Event    @relation(fields: [eventId], references: [id])
+  position  Int
+  notified  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, eventId])
+  @@index([eventId, position])
+}
