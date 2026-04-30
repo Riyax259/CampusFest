@@ -8,6 +8,7 @@ export async function POST(req: Request) {
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const userId = session.user.id as string;
 
   // Make user an organizer if not already
   await prisma.user.update({
