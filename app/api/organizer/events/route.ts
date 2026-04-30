@@ -34,7 +34,7 @@ export async function POST(req: Request) {
       price: body.isFree ? 0 : body.price,
       isFree: body.isFree,
       status: "PUBLISHED",
-      organizerId: session.user.id,
+      organizerId: userId,
     },
   });
 
