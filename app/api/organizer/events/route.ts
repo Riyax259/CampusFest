@@ -11,7 +11,7 @@ export async function POST(req: Request) {
 
   // Make user an organizer if not already
   await prisma.user.update({
-    where: { id: session.user.id },
+    where: { id: userId},
     data: { role: "ORGANIZER" },
   });
 
