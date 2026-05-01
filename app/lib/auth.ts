@@ -2,6 +2,7 @@ import NextAuth, { DefaultSession } from "next-auth";
 import Google from "next-auth/providers/google";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "./prisma";
+import type { AdapterUser } from "@auth/core/adapters";
 
 declare module "next-auth" {
   interface Session {
@@ -10,7 +11,10 @@ declare module "next-auth" {
       role: string;
     } & DefaultSession["user"];
   }
-  interface User {
+}
+
+declare module "@auth/core/adapters" {
+  interface AdapterUser {
     role: string;
   }
 }
@@ -26,7 +30,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   callbacks: {
     session({ session, user }) {
       session.user.id = user.id;
-      session.user.role = user.role;
+      session.user.role = (user as AdapterUser).role;
       return session;
     },
   },
